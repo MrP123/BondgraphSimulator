@@ -43,7 +43,7 @@ class SourceEffort(BondGraphElement):
 
     @property
     def equations(self) -> list[sp.Expr]:
-        # Quelle: e = konstante Anstrengung
+        # Source --> constant effort
         return [self.effort - self.value]
 
 class Capacitor(BondGraphElement, StatefulElement):
@@ -56,7 +56,7 @@ class Capacitor(BondGraphElement, StatefulElement):
     
     @property
     def equations(self) -> list[sp.Expr]:
-        # Dynamische Gleichung: f = dq/dt, e = q / C
+        # Dynamic equation: f = dq/dt, e = q / C
         return [self.flow - sp.Derivative(self.state_var, 't'), self.effort - self.state_var / self.value]
 
 
@@ -70,7 +70,7 @@ class Inductor(BondGraphElement, StatefulElement):
     
     @property
     def equations(self) -> list[sp.Expr]:
-        # Dynamische Gleichung: e = dp/dt, f = p / L
+        # Dynamic equation: e = dp/dt, f = p / L
         return [self.effort - sp.Derivative(self.state_var, 't'), self.flow - self.state_var / self.value]
 
 class Resistor(BondGraphElement):
@@ -79,7 +79,7 @@ class Resistor(BondGraphElement):
 
     @property
     def equations(self) -> list[sp.Expr]:
-        # Widerstand: e = R * f
+        # Resistance: e = R * f
         return [self.effort - self.value * self.flow]
 
 class Junction(BondgraphObject, ABC):
@@ -138,15 +138,15 @@ bond_graph = {
 
 import sympy as sp
 
-# Funktion zur Ableitung der Zustandsraumdarstellung
+# Calculate state space representation of linear bond graph
 def derive_state_space(bond_graph):
-    # Symbolische Variablen für Zustandsgrößen, Flüsse und Anstrengungen
-    state_vars = {}  # Zustandsgrößen (z. B. q_C, p_L)
-    efforts = {}     # Anstrengungen (e_C, e_L, ...)
-    flows = {}       # Flüsse (f_C, f_L, ...)
-    equations = []   # Liste der Gleichungen
+    # symbolic vars for states, efforts and flows
+    state_vars = {}  # states (z. B. q_C, p_L)
+    efforts = {}     # (e_C, e_L, ...)
+    flows = {}       # (f_C, f_L, ...)
+    equations = []   # list of all equations
 
-    # Zustandsgrößen für C- und I-Elemente
+    # Add all state variables, efforts and flows from elements
     for element in bond_graph["elements"]:
         element: BondGraphElement
     
@@ -158,7 +158,8 @@ def derive_state_space(bond_graph):
 
         equations.extend(element.equations)
 
-    # 0- und 1-Junctions
+    # Go through all connected bonds and collect junctions
+    # Append the efforts and flows of the elements connected to each junction
     for bond in bond_graph["connections"]:
         bond: Bond
 
@@ -178,75 +179,71 @@ def derive_state_space(bond_graph):
         elif isinstance(bond.to_element, Junction):
             equations.extend(bond.to_element.equations)
 
-    # Symbolische Lösung der Gleichungen
+    # Symbolically solve system of equations
     state_vars_list = list(state_vars.values())
-    derivatives = [sp.Derivative(var, 't') for var in state_vars_list]
-    solution = sp.solve(equations, derivatives + list(efforts.values()) + list(flows.values()))
+    state_derivatives = [sp.Derivative(var, 't') for var in state_vars_list]
+    solution = sp.solve(equations, state_derivatives + list(efforts.values()) + list(flows.values()))
 
     print(solution)
 
-    # Matrizen A, B, C, D ableiten
-    A = sp.zeros(len(state_vars_list), len(state_vars_list))
-    B = sp.zeros(len(state_vars_list), 1)
+    # Determine A, B, C, D matrices for SS representation
+    n_states = len(state_vars_list)
+    n_inputs = 1
+    n_outputs = 1
 
-    # Ableitungen der Zustandsgrößen (dx/dt) aus der Lösung extrahieren
+    A = sp.zeros(n_states, n_states)
+    B = sp.zeros(n_states, n_inputs)
+
+    # Extract the state derivatives (dx/dt) from the solution
     for i, var in enumerate(state_vars_list):
-        derivative = sp.Derivative(var, 't')  # Symbolische Ableitung
-        if derivative in solution:  # Prüfen, ob die Ableitung in der Lösung enthalten ist
-            expr = solution[derivative]  # Ausdruck für dx/dt
+        derivative = sp.Derivative(var, 't')  # symbolic derivatives
+        if derivative in solution:  # check if they are in the solution
+            expr = solution[derivative]  # expression for dx/dt
             for j, state_var in enumerate(state_vars_list):
-                A[i, j] = expr.diff(state_var)  # Partielle Ableitung nach Zustandsvariablen
+                A[i, j] = expr.diff(state_var)  # partial derivative w.r.t. state variables as A matrix links dx/dt with x via dx/dt ~ A*x
 
             input_counter = 0
             for element in bond_graph["elements"]:
                 element: BondGraphElement
 
+                # Only check source elements for inputs
                 if isinstance(element, SourceEffort):
                     if element.effort in solution:
                         input_var = solution[element.effort]
 
-                        B[i, input_counter] = expr.diff(input_var) # Partielle Ableitung nach Eingang (z. B. V)
+                        B[i, input_counter] = expr.diff(input_var) # partial derivatives of dx/dt w.r.t. inputs as dx/dt ~ B*u
                         input_counter += 1
 
             #input_var = solution[efforts["V"]]
             #B[i, 0] = expr.diff(input_var)  
 
     for element in bond_graph["elements"]:
-        
-        if isinstance(element, Capacitor):
+        # Only check non-source elements
+        if not isinstance(element, SourceEffort):
+
+            # Get output matrices C for effort and flow in element
             if element.effort in solution:
-                C_voltage_C = sp.zeros(1, len(state_vars_list))
+                C_effort = sp.zeros(n_outputs, n_states)
                 for j, state_var in enumerate(state_vars_list):
-                    C_voltage_C[0, j] = solution[element.effort].diff(state_var)
+                    C_effort[0, j] = solution[element.effort].diff(state_var)
                 
             if element.flow in solution:
-                C_current_C = sp.zeros(1, len(state_vars_list))
+                C_flow = sp.zeros(n_outputs, n_states)
                 for j, state_var in enumerate(state_vars_list):
-                    C_current_C[0, j] = solution[element.flow].diff(state_var)
+                    C_flow[0, j] = solution[element.flow].diff(state_var)
 
-        elif isinstance(element, Inductor):
-            if element.effort in solution:
-                C_voltage_I = sp.zeros(1, len(state_vars_list))
-                for j, state_var in enumerate(state_vars_list):
-                    C_voltage_I[0, j] = solution[element.effort].diff(state_var)
-                
-            if element.flow in solution:
-                C_current_I = sp.zeros(1, len(state_vars_list))
-                for j, state_var in enumerate(state_vars_list):
-                    C_current_I[0, j] = solution[element.flow].diff(state_var)
+            # Assign to specific variables based on element type
+            if isinstance(element, Capacitor):
+                C_voltage_C = C_effort
+                C_current_C = C_flow
+            elif isinstance(element, Inductor):
+                C_voltage_I = C_effort
+                C_current_I = C_flow
+            elif isinstance(element, Resistor):
+                C_voltage_R = C_effort
+                C_current_R = C_flow
 
-        elif isinstance(element, Resistor):
-            if element.effort in solution:
-                C_voltage_R = sp.zeros(1, len(state_vars_list))
-                for j, state_var in enumerate(state_vars_list):
-                    C_voltage_R[0, j] = solution[element.effort].diff(state_var)
-                
-            if element.flow in solution:
-                C_current_R = sp.zeros(1, len(state_vars_list))
-                for j, state_var in enumerate(state_vars_list):
-                    C_current_R[0, j] = solution[element.flow].diff(state_var)
-
-    # Matrix C und D
+    # All variants of the C matrix
     C_mats = {
         "voltage_C": C_voltage_C,
         "current_C": C_current_C,
@@ -256,15 +253,14 @@ def derive_state_space(bond_graph):
         "current_R": C_current_R,
     }
 
-
     D = sp.zeros(1, 1)
 
     return A, B, C_mats, D
 
-# Zustandsraumdarstellung ableiten
+# Calculate state space representation
 A, B, C_mats, D = derive_state_space(bond_graph)
 
-# Ergebnisse anzeigen
+# Print results
 print("Matrix A:")
 sp.pprint(A)
 print("\nMatrix B:")
@@ -277,7 +273,7 @@ print("\nMatrix D:")
 sp.pprint(D)
 
 
-x0 = sp.MatrixSymbol("x0", A.shape[0], 1)  # Anfangszustand als Matrix
+x0 = sp.MatrixSymbol("x0", A.shape[0], 1)  # IC as matrix symbol
 
 init_cond = sp.Eq(sp.Symbol("Uc"), (C_mats["voltage_C"] * x0)[0])
 print("\nInitial condition:")
@@ -319,6 +315,8 @@ print(f"Running simulation with\n A:\n{A_mat_val}\nB:\n{B_mat_val}\nC:\n{C_mat_v
 
 sys = ctrl.ss(A_mat_val, -B_mat_val, C_mat_val["voltage_C"], -D_mat_val)
 T, yout = ctrl.step_response(sys, T=50.0e-3, X0=x0_val)
+
+print(f"Max time step: {np.max(np.diff(T))}")
 
 plt.plot(T, yout)
 plt.title("Step Response of the Bond Graph System")
