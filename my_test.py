@@ -1,18 +1,138 @@
+from enum import Enum
+from abc import ABC, abstractmethod
+
 import sympy as sp
 
+class StatefulElement(ABC):
+    @property
+    @abstractmethod
+    def state_var(self) -> sp.Symbol:
+        raise NotImplementedError("Subclasses should implement this method")
+
+class BondgraphObject(ABC):
+    def __init__(self, name: str):
+        self.name = name
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.name})"
+
+class BondGraphElement(BondgraphObject, ABC):
+    def __init__(self, name: str, value: str):
+        super().__init__(name)
+        self.value = sp.Symbol(value)
+    
+    @property
+    @abstractmethod
+    def equations(self) -> list[sp.Expr]:
+        raise NotImplementedError("Subclasses should implement this method")
+    
+    @property
+    def effort(self) -> sp.Symbol:
+        return sp.Symbol(f"e_{self.name}") 
+    
+    @property
+    def flow(self) -> sp.Symbol:
+        return sp.Symbol(f"f_{self.name}") 
+
+    def __repr__(self):
+        return f"{self.type}({self.name}, {self.value})"
+
+class SourceEffort(BondGraphElement):
+    def __init__(self, name: str, value: str):
+        super().__init__(name, value)
+
+    @property
+    def equations(self) -> list[sp.Expr]:
+        # Quelle: e = konstante Anstrengung
+        return [self.effort - self.value]
+
+class Capacitor(BondGraphElement, StatefulElement):
+    def __init__(self, name: str, value: str):
+        super().__init__(name, value)
+
+    @property
+    def state_var(self) -> sp.Symbol:
+        return sp.Symbol(f"q_{self.name}")
+    
+    @property
+    def equations(self) -> list[sp.Expr]:
+        # Dynamische Gleichung: f = dq/dt, e = q / C
+        return [self.flow - sp.Derivative(self.state_var, 't'), self.effort - self.state_var / self.value]
+
+
+class Inductor(BondGraphElement, StatefulElement):
+    def __init__(self, name: str, value: str):
+        super().__init__(name, value)
+
+    @property
+    def state_var(self) -> sp.Symbol:
+        return sp.Symbol(f"p_{self.name}")
+    
+    @property
+    def equations(self) -> list[sp.Expr]:
+        # Dynamische Gleichung: e = dp/dt, f = p / L
+        return [self.effort - sp.Derivative(self.state_var, 't'), self.flow - self.state_var / self.value]
+
+class Resistor(BondGraphElement):
+    def __init__(self, name: str, value: str):
+        super().__init__(name, value)
+
+    @property
+    def equations(self) -> list[sp.Expr]:
+        # Widerstand: e = R * f
+        return [self.effort - self.value * self.flow]
+
+class Junction(BondgraphObject, ABC):
+    def __init__(self, name: str):
+        super().__init__(name)
+        self.flows: list[sp.Symbol] = []
+        self.efforts: list[sp.Symbol] = []
+
+    @property
+    @abstractmethod
+    def equations(self) -> list[sp.Expr]:
+        raise NotImplementedError("Subclasses should implement this method")
+
+class OneJunction(Junction):
+    def __init__(self, name: str):
+        super().__init__(name)
+
+    @property
+    def equations(self) -> list[sp.Expr]:
+        return [sum(self.efforts), *[self.flows[0] - f for f in self.flows[1:]]]
+    
+class ZeroJunction(Junction):
+    def __init__(self, name: str):
+        super().__init__(name)
+
+    @property
+    def equations(self) -> list[sp.Expr]:
+        return [sum(self.flows), *[self.efforts[0] - e for e in self.efforts[1:]]]
+
+class Bond:
+    def __init__(self, from_element: BondgraphObject, to_element: BondgraphObject):
+        self.from_element = from_element
+        self.to_element = to_element
+
 # Beispiel: Bondgraph-Datenstruktur
+voltage_source = SourceEffort("V", "V(t)")  # Spannungsquelle
+capacitor = Capacitor("C", "C")             # Kapazität
+inductor = Inductor("L", "L")               # Induktivität
+resistor = Resistor("R", "R")               # Widerstand
+junction = OneJunction("J")                 # 1-Junction
+
 bond_graph = {
     "elements": [
-        {"type": "Se", "name": "V", "value": "V(t)"},  # Spannungsquelle
-        {"type": "C", "name": "C", "value": "C"},     # Kapazität
-        {"type": "I", "name": "L", "value": "L"},     # Induktivität
-        {"type": "R", "name": "R", "value": "R"}      # Widerstand
+        voltage_source,
+        capacitor,
+        inductor,
+        resistor,
     ],
     "connections": [
-        ("V", "1_1"),  # Spannungsquelle an 1-Junction
-        ("1_1", "C"),  # 1-Junction an Kondensator
-        ("1_1", "R"),  # 1-Junction an Widerstand
-        ("1_1", "L"),  # 1-Junction an Induktivität
+        Bond(voltage_source, junction),  # Spannungsquelle an 1-Junction
+        Bond(junction, capacitor),       # 1-Junction an Kondensator
+        Bond(junction, resistor),        # 1-Junction an Widerstand
+        Bond(junction, inductor),        # 1-Junction an Induktivität
     ]
 }
 
@@ -28,75 +148,35 @@ def derive_state_space(bond_graph):
 
     # Zustandsgrößen für C- und I-Elemente
     for element in bond_graph["elements"]:
-        name = element["name"]
+        element: BondGraphElement
+    
+        if isinstance(element, StatefulElement):
+            state_vars[element.name] = element.state_var
 
-        if element["type"] == "C":
-            state_vars[name] = sp.Symbol(f"q_{name}")  # Ladung
-            efforts[name] = sp.Symbol(f"e_{name}")    # Anstrengung
-            flows[name] = sp.Symbol(f"f_{name}")      # Fluss
+        efforts[element.name] = element.effort
+        flows[element.name] = element.flow
 
-            # Dynamische Gleichung: f = dq/dt, e = q / C
-            equations.append(flows[name] - sp.Derivative(state_vars[name], 't'))
-            equations.append(efforts[name] - state_vars[name] / sp.Symbol(element["value"]))
-
-        elif element["type"] == "I":
-            state_vars[name] = sp.Symbol(f"p_{name}")  # Impuls
-            efforts[name] = sp.Symbol(f"e_{name}")    # Anstrengung
-            flows[name] = sp.Symbol(f"f_{name}")      # Fluss
-            # Dynamische Gleichung: e = dp/dt, f = p / L
-            equations.append(efforts[name] - sp.Derivative(state_vars[name], 't'))
-            equations.append(flows[name] - state_vars[name] / sp.Symbol(element["value"]))
-
-        elif element["type"] == "R":
-            efforts[name] = sp.Symbol(f"e_{name}")    # Anstrengung
-            flows[name] = sp.Symbol(f"f_{name}")      # Fluss
-            # Widerstand: e = R * f
-            equations.append(efforts[name] - sp.Symbol(element["value"]) * flows[name])
-
-        elif element["type"] == "Se":
-            efforts[name] = sp.Symbol(f"e_{name}")    # Anstrengung
-            flows[name] = sp.Symbol(f"f_{name}")      # Fluss
-            # Quelle: e = konstante Anstrengung
-            equations.append(efforts[name] - sp.Symbol(element["value"]))
+        equations.extend(element.equations)
 
     # 0- und 1-Junctions
-    junctions = {}
-    for connection in bond_graph["connections"]:
-        from_element, to_element = connection
+    for bond in bond_graph["connections"]:
+        bond: Bond
 
-        if "0_" in from_element or "0_" in to_element:  # 0-Junction
-            junction_name = from_element if "0_" in from_element else to_element
+        if isinstance(bond.from_element, Junction) or isinstance(bond.to_element, Junction):
+            junction = bond.from_element if isinstance(bond.from_element, Junction) else bond.to_element
+            element = bond.to_element if junction is bond.from_element else bond.from_element
             
-            if junction_name not in junctions:
-                junctions[junction_name] = {"efforts": [], "flows": []}
-            if "0_" in from_element:
-                junctions[junction_name]["flows"].append(flows[to_element])
-                junctions[junction_name]["efforts"].append(efforts[to_element])
-            else:
-                junctions[junction_name]["flows"].append(flows[from_element])
-                junctions[junction_name]["efforts"].append(efforts[from_element])
+            junction.flows.append(element.flow)
+            junction.efforts.append(element.effort)
 
-        elif "1_" in from_element or "1_" in to_element:  # 1-Junction
-            junction_name = from_element if "1_" in from_element else to_element
-            if junction_name not in junctions:
-                junctions[junction_name] = {"efforts": [], "flows": []}
-            if "1_" in from_element:
-                junctions[junction_name]["flows"].append(flows[to_element])
-                junctions[junction_name]["efforts"].append(efforts[to_element])
-            else:
-                junctions[junction_name]["flows"].append(flows[from_element])
-                junctions[junction_name]["efforts"].append(efforts[from_element])
+    # After all junctions have been processed, collect their equations
+    for bond in bond_graph["connections"]:
+        bond: Bond
 
-    # Gleichungen für Junctions
-    for junction_name, junction_data in junctions.items():
-        if "0_" in junction_name:  # 0-Junction: Gemeinsame Anstrengung, Flüsse summieren sich
-            equations.append(sum(junction_data["flows"]))
-            for e in junction_data["efforts"][1:]:
-                equations.append(junction_data["efforts"][0] - e)
-        elif "1_" in junction_name:  # 1-Junction: Gemeinsamer Fluss, Anstrengungen summieren sich
-            equations.append(sum(junction_data["efforts"]))
-            for f in junction_data["flows"][1:]:
-                equations.append(junction_data["flows"][0] - f)
+        if isinstance(bond.from_element, Junction):
+            equations.extend(bond.from_element.equations)
+        elif isinstance(bond.to_element, Junction):
+            equations.extend(bond.to_element.equations)
 
     # Symbolische Lösung der Gleichungen
     state_vars_list = list(state_vars.values())
@@ -119,11 +199,11 @@ def derive_state_space(bond_graph):
 
             input_counter = 0
             for element in bond_graph["elements"]:
-                if element["type"] == "Se": # Effort source
+                element: BondGraphElement
 
-                    effort = efforts[element["name"]]
-                    if effort in solution:
-                        input_var = solution[effort]
+                if isinstance(element, SourceEffort):
+                    if element.effort in solution:
+                        input_var = solution[element.effort]
 
                         B[i, input_counter] = expr.diff(input_var) # Partielle Ableitung nach Eingang (z. B. V)
                         input_counter += 1
@@ -132,51 +212,39 @@ def derive_state_space(bond_graph):
             #B[i, 0] = expr.diff(input_var)  
 
     for element in bond_graph["elements"]:
-
-        if element["type"] == "C":
-            name = element["name"]
-            elem_effort = sp.Symbol(f"e_{name}")
-            elem_flow = sp.Symbol(f"f_{name}")
-
-            if elem_effort in solution:
+        
+        if isinstance(element, Capacitor):
+            if element.effort in solution:
                 C_voltage_C = sp.zeros(1, len(state_vars_list))
                 for j, state_var in enumerate(state_vars_list):
-                    C_voltage_C[0, j] = solution[elem_effort].diff(state_var)
+                    C_voltage_C[0, j] = solution[element.effort].diff(state_var)
                 
-            if elem_flow in solution:
+            if element.flow in solution:
                 C_current_C = sp.zeros(1, len(state_vars_list))
                 for j, state_var in enumerate(state_vars_list):
-                    C_current_C[0, j] = solution[elem_flow].diff(state_var)
+                    C_current_C[0, j] = solution[element.flow].diff(state_var)
 
-        elif element["type"] == "I":
-            name = element["name"]
-            elem_effort = sp.Symbol(f"e_{name}")
-            elem_flow = sp.Symbol(f"f_{name}")
-
-            if elem_effort in solution:
+        elif isinstance(element, Inductor):
+            if element.effort in solution:
                 C_voltage_I = sp.zeros(1, len(state_vars_list))
                 for j, state_var in enumerate(state_vars_list):
-                    C_voltage_I[0, j] = solution[elem_effort].diff(state_var)
+                    C_voltage_I[0, j] = solution[element.effort].diff(state_var)
                 
-            if elem_flow in solution:
+            if element.flow in solution:
                 C_current_I = sp.zeros(1, len(state_vars_list))
                 for j, state_var in enumerate(state_vars_list):
-                    C_current_I[0, j] = solution[elem_flow].diff(state_var)
+                    C_current_I[0, j] = solution[element.flow].diff(state_var)
 
-        elif element["type"] == "R":
-            name = element["name"]
-            elem_effort = sp.Symbol(f"e_{name}")
-            elem_flow = sp.Symbol(f"f_{name}")
-
-            if elem_effort in solution:
+        elif isinstance(element, Resistor):
+            if element.effort in solution:
                 C_voltage_R = sp.zeros(1, len(state_vars_list))
                 for j, state_var in enumerate(state_vars_list):
-                    C_voltage_R[0, j] = solution[elem_effort].diff(state_var)
+                    C_voltage_R[0, j] = solution[element.effort].diff(state_var)
                 
-            if elem_flow in solution:
+            if element.flow in solution:
                 C_current_R = sp.zeros(1, len(state_vars_list))
                 for j, state_var in enumerate(state_vars_list):
-                    C_current_R[0, j] = solution[elem_flow].diff(state_var)
+                    C_current_R[0, j] = solution[element.flow].diff(state_var)
 
     # Matrix C und D
     C_mats = {
