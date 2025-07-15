@@ -1,0 +1,96 @@
+from pyBG import *
+
+import numpy as np
+import matplotlib.pyplot as plt
+import control as ctrl
+
+bond_graph = BondGraph()
+
+#https://en.wikipedia.org/wiki/Bond_graph#:~:text=denotes%20preferred%20causality.-,For%20the%20example%20provided,-%2C
+voltage_source = SourceEffort("V", "U_A(t)")
+junction_elec = OneJunction("J1")
+inductor = Inductor("I_elec", "L_A")
+resistor = Resistor("R_elec", "R_A")
+gyrator = Gyrator("G1", "K_t")
+junction_mech = OneJunction("J2")
+bearing = Resistor("R_mech", "R_B")
+inertia = Inductor("I_mech", "J")
+
+bond_graph.add_element(voltage_source)
+bond_graph.add_element(junction_elec)
+bond_graph.add_element(inductor)
+bond_graph.add_element(resistor)
+bond_graph.add_element(gyrator)
+bond_graph.add_element(junction_mech)
+bond_graph.add_element(bearing)
+bond_graph.add_element(inertia)
+
+bond_graph.add_connection(Bond(voltage_source, junction_elec, "effort_out"))
+bond_graph.add_connection(Bond(junction_elec, resistor, "flow_out"))
+bond_graph.add_connection(Bond(junction_elec, inductor, "effort_out"))
+bond_graph.add_connection(Bond(junction_elec, gyrator, "flow_out"))
+bond_graph.add_connection(Bond(gyrator, junction_mech, "effort_out"))
+bond_graph.add_connection(Bond(junction_mech, bearing, "flow_out"))
+bond_graph.add_connection(Bond(junction_mech, inertia, "effort_out"))
+
+bond_graph.handle_bonds()
+bond_graph.handle_equations()
+bond_graph.get_solution_equations()
+
+A, B, C, D, n_states, n_inputs, n_outputs = bond_graph.get_state_space()
+
+# Print results
+print("Matrix A:")
+sp.pprint(A)
+print("\nMatrix B:")
+sp.pprint(B)
+print("\nMatrix C:")
+sp.pprint(C)
+print("\nMatrix D:")
+sp.pprint(D)
+
+U_A_val = 5.0
+R_A_val = 4
+L_A_val = 15e-6
+K_t_val = 9.54e-3
+J_val = 1e-6
+R_B_val = 1e-6
+
+#ToDo: maybe make numeric value part of the element class?
+subs_dict = {
+    voltage_source.value: U_A_val,
+    resistor.value: R_A_val,
+    inductor.value: L_A_val,
+    gyrator.value: K_t_val,
+    inertia.value: J_val,
+    bearing.value: R_B_val
+}
+
+A_mat_val = np.array(A.subs(subs_dict), dtype=np.float64)
+B_mat_val = np.array(B.subs(subs_dict), dtype=np.float64)
+C_mat_val = np.array(C.subs(subs_dict), dtype=np.float64)
+D_mat_val = np.array(D.subs(subs_dict), dtype=np.float64)
+
+x0_val = np.zeros_like(B_mat_val)
+
+sys = ctrl.ss(A_mat_val, B_mat_val, C_mat_val, D_mat_val)
+T, yout = ctrl.step_response(sys, T=0.5, X0=x0_val)
+yout = np.squeeze(yout) # yout is n_outputs x 1 x n_timesteps as the C matrix is has a shape of (n_outputs, n_states), so we need to squeeze the output to n_outputs x n_timesteps
+
+print(f"Max time step: {np.max(np.diff(T))}")
+
+fig, (ax1, ax2) = plt.subplots(1, 2)
+
+ax1.set_xlabel("time (s)")
+ax1.set_ylabel("Efforts (V, N, Nm, Pa)")
+ax2.set_ylabel("Currents (A, m/s, rad/s, m^3/s)")
+
+for i, signal in enumerate(yout):
+    if i < n_outputs // 2:
+        ax1.plot(T, signal, label=f"e_{i}")
+    else:
+        ax2.plot(T, signal, label=f"f_{i - n_outputs // 2}")
+    
+ax1.legend()
+ax2.legend()
+plt.show()
