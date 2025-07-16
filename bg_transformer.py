@@ -70,6 +70,26 @@ B_mat_val = np.array(B.subs(subs_dict), dtype=np.float64)
 C_mat_val = np.array(C.subs(subs_dict), dtype=np.float64)
 D_mat_val = np.array(D.subs(subs_dict), dtype=np.float64)
 
+# Initial conditions for the state variables --> not yet working
+#x0_entries = sp.symbols(f"x0_0:{n_states}", real=True)
+#y0_entries = sp.symbols(f"y0_0:{n_outputs}", real=True)
+#x0 = sp.Matrix(x0_entries)
+#y0 = sp.Matrix(y0_entries)
+#U0_C6 = sp.symbols('U0_C6', real=True)
+#U0_I3 = sp.symbols('U0_I3', real=True)
+
+#for i, bond in enumerate(bond_graph.connections):
+#    if bond.effort == capacitor.bond.effort:
+#        print(f"capacitor = {i}")
+#    if bond.flow == inductor.bond.flow:
+#        print(f"inductor = {i}")
+
+#sp.solve(C[[2, 5], :] * x0 - sp.Matrix([U0_I3, U0_C6]), x0)
+
+import networkx as nx
+fig, ax = bond_graph.plot(nx.bfs_layout, start=voltage_source.name)
+fig.show()
+
 x0_val = np.zeros_like(B_mat_val)
 
 sys = ctrl.ss(A_mat_val, B_mat_val, C_mat_val, D_mat_val)

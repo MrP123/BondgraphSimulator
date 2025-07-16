@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 
 import sympy as sp
+import networkx as nx
+import matplotlib.pyplot as plt
 
 class StatefulElement(ABC):
     @property
@@ -318,3 +320,19 @@ class BondGraph():
         # alternatively could use sp.linear_eq_to_matrix(...)
 
         return A, B, C, D, n_states, n_inputs, n_outputs
+    
+    def plot(self, layout: callable = nx.spectral_layout, **kwargs):
+
+        G = nx.DiGraph()
+
+        for elem in self.elements:
+            G.add_node(elem.name, label=elem.name)
+
+        for bond in self.connections:
+            G.add_edge(bond.from_element.name, bond.to_element.name, label=bond.num)
+
+        pos = layout(G, **kwargs)
+
+        fig, ax = plt.subplots(figsize=(10, 8))
+        nx.draw(G, pos, ax=ax, with_labels=True, node_size=2000, node_color='lightblue', font_size=10, font_color='black', arrows=True)
+        return fig, ax
