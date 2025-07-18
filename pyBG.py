@@ -200,21 +200,21 @@ class ZeroJunction(Junction):
 class BondGraph():
 
     def __init__(self):
-        self.elements = []
-        self.connections: list[Bond] = []
+        self.elements = set()
+        self.connections: set[Bond] = set()
 
         self.state_vars: list[sp.Expr] = []
         self.equations: list[sp.Expr] = []
         self.inputs: list[sp.Symbol] = []
 
-    def add_element(self, element: Node):
-        self.elements.append(element)
+    def add_bond(self, bond: Bond):
+        self.connections.add(bond)
+        
+        for element in bond.elements:
+            self.elements.add(element)
 
-        if isinstance(element, SourceEffort) or isinstance(element, SourceFlow):
-            self.inputs.append(element.value)
-
-    def add_connection(self, bond: Bond):
-        self.connections.append(bond)
+            if isinstance(element, SourceEffort) or isinstance(element, SourceFlow):
+                self.inputs.append(element.value)
 
     def handle_bonds(self):
         
