@@ -1,5 +1,6 @@
-from pyBG import *
+from pyBG import BondGraph, Bond, SourceEffort, Inductor, Resistor, Gyrator, OneJunction
 
+import sympy as sp
 import numpy as np
 import matplotlib.pyplot as plt
 import control as ctrl
@@ -40,7 +41,6 @@ sp.pprint(C)
 print("\nMatrix D:")
 sp.pprint(D)
 
-import networkx as nx
 fig, ax = bond_graph.plot()
 fig.show()
 

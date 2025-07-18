@@ -1,5 +1,6 @@
-from pyBG import *
+from pyBG import BondGraph, Bond, SourceEffort, Inductor, Capacitor, Resistor, Transformer, OneJunction, ZeroJunction
 
+import sympy as sp
 import numpy as np
 import matplotlib.pyplot as plt
 import control as ctrl
@@ -77,7 +78,6 @@ D_mat_val = np.array(D.subs(subs_dict), dtype=np.float64)
 
 #sp.solve(C[[2, 5], :] * x0 - sp.Matrix([U0_I3, U0_C6]), x0)
 
-import networkx as nx
 fig, ax = bond_graph.plot()
 fig.show()
 
