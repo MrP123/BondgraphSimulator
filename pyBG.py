@@ -35,6 +35,10 @@ class Bond:
         self.effort = sp.Symbol(f"e_{self.num}")
         self.flow = sp.Symbol(f"f_{self.num}")
 
+    @property
+    def elements(self):
+        return (self.from_element, self.to_element)
+
     def __repr__(self):
         return f"Bond(from={self.from_element}, to={self.to_element}, causality={self.causality})"
 
