@@ -7,7 +7,7 @@ import control as ctrl
 
 bond_graph = BondGraph()
 
-#https://en.wikipedia.org/wiki/Bond_graph#:~:text=denotes%20preferred%20causality.-,For%20the%20example%20provided,-%2C
+# https://en.wikipedia.org/wiki/Bond_graph#:~:text=denotes%20preferred%20causality.-,For%20the%20example%20provided,-%2C
 voltage_source = SourceEffort("V", "V(t)")
 capacitor = Capacitor("C6", "C6")
 inductor = Inductor("I3", "L3")
@@ -47,7 +47,7 @@ L_val = 1e-3
 V_val = 1.0
 T_val = 2.0
 
-#ToDo: maybe make numeric value part of the element class?
+# ToDo: maybe make numeric value part of the element class?
 subs_dict = {
     resistor2.value:      R_val,
     resistor7.value:      R_val,
@@ -100,7 +100,7 @@ for i, signal in enumerate(yout):
         ax1.plot(T, signal, label=f"e_{i}")
     else:
         ax2.plot(T, signal, label=f"f_{i - n_outputs // 2}")
-    
+
 ax1.legend()
 ax2.legend()
 plt.show()

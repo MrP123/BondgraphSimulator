@@ -7,7 +7,7 @@ import control as ctrl
 
 bond_graph = BondGraph()
 
-#https://en.wikipedia.org/wiki/Bond_graph#:~:text=denotes%20preferred%20causality.-,For%20the%20example%20provided,-%2C
+# https://en.wikipedia.org/wiki/Bond_graph#:~:text=denotes%20preferred%20causality.-,For%20the%20example%20provided,-%2C
 voltage_source = SourceEffort("V", "U_A(t)")
 junction_elec = OneJunction("J0_1")
 inductor = Inductor("I_elec", "L_A")
@@ -51,14 +51,14 @@ K_t_val = 9.54e-3
 J_val = 1e-6
 R_B_val = 1e-6
 
-#ToDo: maybe make numeric value part of the element class?
+# ToDo: maybe make numeric value part of the element class?
 subs_dict = {
     voltage_source.value: U_A_val,
-    resistor.value: R_A_val,
-    inductor.value: L_A_val,
-    gyrator.value: K_t_val,
-    inertia.value: J_val,
-    bearing.value: R_B_val
+    resistor.value:       R_A_val,
+    inductor.value:       L_A_val,
+    gyrator.value:        K_t_val,
+    inertia.value:        J_val,
+    bearing.value:        R_B_val,
 }
 
 A_mat_val = np.array(A.subs(subs_dict), dtype=np.float64)
@@ -85,7 +85,7 @@ for i, signal in enumerate(yout):
         ax1.plot(T, signal, label=f"e_{i}")
     else:
         ax2.plot(T, signal, label=f"f_{i - n_outputs // 2}")
-    
+
 ax1.legend()
 ax2.legend()
 plt.show()

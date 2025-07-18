@@ -4,6 +4,7 @@ import sympy as sp
 import networkx as nx
 import matplotlib.pyplot as plt
 
+
 class StatefulElement(ABC):
     @property
     @abstractmethod
@@ -17,7 +18,8 @@ class Node(ABC):
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
-    
+
+
 class Bond:
     counter = 0
 
@@ -42,6 +44,7 @@ class Bond:
     def __repr__(self):
         return f"Bond(from={self.from_element}, to={self.to_element}, causality={self.causality})"
 
+
 class ElementOnePort(Node, ABC):
     def __init__(self, name: str, value: str):
         super().__init__(name)
@@ -56,6 +59,7 @@ class ElementOnePort(Node, ABC):
     def __repr__(self):
         return f"{self.__class__.__name__}(name = {self.name}, value = {self.value})"
 
+
 class SourceEffort(ElementOnePort):
     def __init__(self, name: str, value: str):
         super().__init__(name, value)
@@ -64,6 +68,7 @@ class SourceEffort(ElementOnePort):
     def equations(self) -> list[sp.Expr]:
         # Source --> constant effort
         return [self.bond.effort - self.value]
+
 
 class SourceFlow(ElementOnePort):
     def __init__(self, name: str, value: str):
@@ -74,6 +79,7 @@ class SourceFlow(ElementOnePort):
         # Source --> constant flow
         return [self.bond.flow - self.value]
 
+
 class Capacitor(ElementOnePort, StatefulElement):
     def __init__(self, name: str, value: str):
         super().__init__(name, value)
@@ -81,7 +87,7 @@ class Capacitor(ElementOnePort, StatefulElement):
     @property
     def state_var(self) -> sp.Symbol:
         return sp.Symbol(f"q_{self.name}")
-    
+
     @property
     def equations(self) -> list[sp.Expr]:
         # Dynamic equation: f = dq/dt, e = q / C
@@ -94,7 +100,7 @@ class Inductor(ElementOnePort, StatefulElement):
     @property
     def state_var(self) -> sp.Symbol:
         return sp.Symbol(f"p_{self.name}")
-    
+
     @property
     def equations(self) -> list[sp.Expr]:
         # Dynamic equation: e = dp/dt, f = p / L
@@ -108,17 +114,18 @@ class Resistor(ElementOnePort):
     def equations(self) -> list[sp.Expr]:
         # Resistance: e = R * f
         if self.bond.causality == "effort_out":
-            return [self.bond.flow - 1/self.value * self.bond.effort]
+            return [self.bond.flow - 1 / self.value * self.bond.effort]
         elif self.bond.causality == "flow_out":
             return [self.bond.effort - self.value * self.bond.flow]
-    
+
+
 class ElementTwoPort(Node, ABC):
     def __init__(self, name: str, value: str):
         super().__init__(name)
         self.value = sp.Symbol(value, real=True, positive=True)
-        self.bond1: Bond = None # ElementOther   --(bond1)--> ElementTwoPort
-        self.bond2: Bond = None # ElementTwoPort --(bond2)--> ElementOther
-    
+        self.bond1: Bond = None  # ElementOther   --(bond1)--> ElementTwoPort
+        self.bond2: Bond = None  # ElementTwoPort --(bond2)--> ElementOther
+
     @property
     @abstractmethod
     def equations(self) -> list[sp.Expr]:
@@ -126,6 +133,7 @@ class ElementTwoPort(Node, ABC):
 
     def __repr__(self):
         return f"{self.__class__.__name__}(name = {self.name}, value = {self.value})"
+
 
 class Transformer(ElementTwoPort):
     def __init__(self, name: str, value: str):
@@ -140,10 +148,17 @@ class Transformer(ElementTwoPort):
             raise ValueError("Both bonds must have the same causality for a transformer element.")
 
         if self.bond1.causality == "effort_out":
-            return [self.bond1.flow - 1/self.value * self.bond2.flow, self.bond2.effort - 1 / self.value * self.bond1.effort]
+            return [
+                self.bond1.flow - 1 / self.value * self.bond2.flow,
+                self.bond2.effort - 1 / self.value * self.bond1.effort,
+            ]
         elif self.bond1.causality == "flow_out":
-            return [self.bond1.effort - self.value * self.bond2.effort, self.bond2.flow - self.value * self.bond1.flow]
-        
+            return [
+                self.bond1.effort - self.value * self.bond2.effort,
+                self.bond2.flow - self.value * self.bond1.flow,
+            ]
+
+
 class Gyrator(ElementTwoPort):
     def __init__(self, name: str, value: str):
         super().__init__(name, value)
@@ -157,10 +172,16 @@ class Gyrator(ElementTwoPort):
             raise ValueError("Both bonds must have the different causality for a gyrator element.")
 
         if self.bond1.causality == "effort_out":
-            return [self.bond1.flow - 1/self.value * self.bond2.effort, self.bond2.flow - 1 / self.value * self.bond1.effort]
+            return [
+                self.bond1.flow - 1 / self.value * self.bond2.effort,
+                self.bond2.flow - 1 / self.value * self.bond1.effort,
+            ]
         elif self.bond1.causality == "flow_out":
-            return [self.bond1.effort - self.value * self.bond2.flow, self.bond2.effort - self.value * self.bond1.flow]
-        
+            return [
+                self.bond1.effort - self.value * self.bond2.flow,
+                self.bond2.effort - self.value * self.bond1.flow,
+            ]
+
 
 class Junction(Node, ABC):
     def __init__(self, name: str):
@@ -172,6 +193,7 @@ class Junction(Node, ABC):
     @abstractmethod
     def equations(self) -> list[sp.Expr]:
         raise NotImplementedError("Subclasses should implement this method")
+
 
 class OneJunction(Junction):
     def __init__(self, name: str):
@@ -186,7 +208,8 @@ class OneJunction(Junction):
 
         flow_eq = [self.bonds[0].flow - b.flow for b in self.bonds[1:]]
         return [effort_eq, *flow_eq]
-    
+
+
 class ZeroJunction(Junction):
     def __init__(self, name: str):
         super().__init__(name)
@@ -201,8 +224,8 @@ class ZeroJunction(Junction):
         effort_eq = [self.bonds[0].effort - b.effort for b in self.bonds[1:]]
         return [flow_eq, *effort_eq]
 
-class BondGraph():
 
+class BondGraph:
     def __init__(self):
         self.elements = set()
         self.connections: set[Bond] = set()
@@ -213,7 +236,7 @@ class BondGraph():
 
     def add_bond(self, bond: Bond):
         self.connections.add(bond)
-        
+
         for element in bond.elements:
             self.elements.add(element)
 
@@ -221,11 +244,10 @@ class BondGraph():
                 self.inputs.append(element.value)
 
     def handle_bonds(self):
-        
         def handle_bond_element(element: Node, bond: Bond):
             if isinstance(element, ElementOnePort):
                 element.bond = bond
-                
+
             elif isinstance(element, ElementTwoPort):
                 if bond.to_element == element:
                     element.bond1 = bond
@@ -259,12 +281,11 @@ class BondGraph():
 
     def handle_equations(self):
         for element in self.elements:
-            
             if isinstance(element, ElementOnePort):
                 bond = element.bond
                 if bond is None:
                     raise ValueError(f"Element {element} has no connected bond.")
-                
+
                 # Add equations from the element to the bond graph
                 self.equations.extend(element.equations)
 
@@ -276,7 +297,7 @@ class BondGraph():
                 bond2 = element.bond2
                 if bond1 is None or bond2 is None:
                     raise ValueError(f"Element {element} has no connected bonds.")
-                
+
                 # Add equations from the element to the bond graph
                 self.equations.extend(element.equations)
 
@@ -284,18 +305,18 @@ class BondGraph():
                 self.equations.extend(element.equations)
 
     def get_solution_equations(self):
-        state_derivatives = [sp.Derivative(var, 't') for var in self.state_vars]
+        state_derivatives = [sp.Derivative(var, "t") for var in self.state_vars]
 
         self.solution = sp.solve(self.equations, state_derivatives + [b.effort for b in self.connections] + [b.flow for b in self.connections])
         return self.solution
-    
+
     def get_state_space(self):
         if self.solution is None:
             raise ValueError("No solution available. Please call get_solution_equations() first.")
 
         n_states = len(self.state_vars)
         n_inputs = len(self.inputs)  # Number of inputs (sources)
-        n_outputs = 2*len(self.connections) #effort & flow for each bond
+        n_outputs = 2 * len(self.connections)  # effort & flow for each bond
 
         # General form of a state space model
         # x_dot = f(x, u)
@@ -308,13 +329,13 @@ class BondGraph():
 
         f: sp.Matrix = sp.zeros(n_states, 1)
         for i, state_var in enumerate(self.state_vars):
-            state_deriv = sp.Derivative(state_var, 't')  # symbolic derivative dx/dt
+            state_deriv = sp.Derivative(state_var, "t")  # symbolic derivative dx/dt
             f[i] = self.solution[state_deriv]
 
-        h: sp.Matrix = sp.zeros(n_outputs, 1) # efforts then flows
+        h: sp.Matrix = sp.zeros(n_outputs, 1)  # efforts then flows
         for i, bond in enumerate(self.connections):
             h[i] = self.solution[bond.effort]
-            h[i + n_outputs//2] = self.solution[bond.flow]
+            h[i + n_outputs // 2] = self.solution[bond.flow]
 
         A = f.jacobian(self.state_vars)
         B = f.jacobian(self.inputs)
@@ -324,9 +345,8 @@ class BondGraph():
         # alternatively could use sp.linear_eq_to_matrix(...)
 
         return A, B, C, D, n_states, n_inputs, n_outputs
-    
-    def plot(self, layout: callable = nx.spectral_layout, **kwargs):
 
+    def plot(self, layout: callable = nx.spectral_layout, **kwargs):
         G = nx.DiGraph()
 
         for elem in self.elements:
@@ -335,12 +355,11 @@ class BondGraph():
         for bond in self.connections:
             G.add_edge(bond.from_element.name, bond.to_element.name, label=bond.num)
 
-        
-        #https://networkx.org/documentation/stable/auto_examples/graph/plot_dag_layout.html
+        # https://networkx.org/documentation/stable/auto_examples/graph/plot_dag_layout.html
         if nx.is_directed_acyclic_graph(G):
             for layer, nodes in enumerate(nx.topological_generations(G)):
-            # `multipartite_layout` expects the layer as a node attribute, so add the
-            # numeric layer value as a node attribute
+                # `multipartite_layout` expects the layer as a node attribute, so add the
+                # numeric layer value as a node attribute
                 for node in nodes:
                     G.nodes[node]["layer"] = layer
 
