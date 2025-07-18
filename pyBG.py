@@ -335,7 +335,18 @@ class BondGraph():
         for bond in self.connections:
             G.add_edge(bond.from_element.name, bond.to_element.name, label=bond.num)
 
-        pos = layout(G, **kwargs)
+        
+        #https://networkx.org/documentation/stable/auto_examples/graph/plot_dag_layout.html
+        if nx.is_directed_acyclic_graph(G):
+            for layer, nodes in enumerate(nx.topological_generations(G)):
+            # `multipartite_layout` expects the layer as a node attribute, so add the
+            # numeric layer value as a node attribute
+                for node in nodes:
+                    G.nodes[node]["layer"] = layer
+
+            pos = nx.multipartite_layout(G, subset_key="layer")
+        else:
+            pos = layout(G, **kwargs)
 
         fig, ax = plt.subplots(figsize=(10, 8))
         nx.draw(G, pos, ax=ax, with_labels=True, node_size=2000, node_color='lightblue', font_size=10, font_color='black', arrows=True)

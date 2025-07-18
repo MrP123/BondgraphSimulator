@@ -40,6 +40,10 @@ sp.pprint(C)
 print("\nMatrix D:")
 sp.pprint(D)
 
+import networkx as nx
+fig, ax = bond_graph.plot()
+fig.show()
+
 U_A_val = 5.0
 R_A_val = 4
 L_A_val = 15e-6
