@@ -225,17 +225,22 @@ class ZeroJunction(Junction):
         return [flow_eq, *effort_eq]
 
 
+type SolutionType = dict[sp.Expr, sp.Expr]
+
 class BondGraph:
+
     def __init__(self):
         self.elements = set()
-        self.connections: set[Bond] = set()
+        self.bonds: set[Bond] = set()
 
         self.state_vars: list[sp.Expr] = []
         self.equations: list[sp.Expr] = []
         self.inputs: list[sp.Symbol] = []
 
-    def add_bond(self, bond: Bond):
-        self.connections.add(bond)
+        self.solution: SolutionType = None
+
+    def add_bond(self, bond: Bond) -> None:
+        self.bonds.add(bond)
 
         for element in bond.elements:
             self.elements.add(element)
@@ -243,7 +248,7 @@ class BondGraph:
             if isinstance(element, SourceEffort) or isinstance(element, SourceFlow):
                 self.inputs.append(element.value)
 
-    def handle_bonds(self):
+    def __handle_bonds(self) -> None:
         def handle_bond_element(element: Node, bond: Bond):
             if isinstance(element, ElementOnePort):
                 element.bond = bond
@@ -259,7 +264,7 @@ class BondGraph:
 
                 if isinstance(element, OneJunction):
                     if (bond.from_element == element and bond.causality == "effort_out") or (bond.to_element == element and bond.causality == "flow_out"):
-                        # bond is strong bond for zero junction
+                        # bond is strong bond for one junction
                         if element.strong_bond is None:
                             element.strong_bond = bond
                             print(f"Assigned strong bond {bond} to OneJunction {element}.")
@@ -275,11 +280,11 @@ class BondGraph:
                         else:
                             raise ValueError(f"ZeroJunction {element} already has a strong bond: {element.strong_bond}. Cannot assign {bond}.")
         
-        for bond in self.connections:
+        for bond in self.bonds:
             handle_bond_element(bond.from_element, bond)
             handle_bond_element(bond.to_element, bond)
 
-    def handle_equations(self):
+    def __handle_equations(self) -> None:
         for element in self.elements:
             if isinstance(element, ElementOnePort):
                 bond = element.bond
@@ -304,19 +309,22 @@ class BondGraph:
             elif isinstance(element, Junction):
                 self.equations.extend(element.equations)
 
-    def get_solution_equations(self):
-        state_derivatives = [sp.Derivative(var, "t") for var in self.state_vars]
+    def get_solution_equations(self) -> SolutionType:
+        self.__handle_bonds()
+        self.__handle_equations()
 
-        self.solution = sp.solve(self.equations, state_derivatives + [b.effort for b in self.connections] + [b.flow for b in self.connections])
+        state_derivatives = [sp.Derivative(var, "t") for var in self.state_vars]
+        self.solution = sp.solve(self.equations, state_derivatives + [b.effort for b in self.bonds] + [b.flow for b in self.bonds])
         return self.solution
 
     def get_state_space(self):
+        # Retrieve solution if needed
         if self.solution is None:
-            raise ValueError("No solution available. Please call get_solution_equations() first.")
+            self.get_solution_equations()
 
         n_states = len(self.state_vars)
         n_inputs = len(self.inputs)  # Number of inputs (sources)
-        n_outputs = 2 * len(self.connections)  # effort & flow for each bond
+        n_outputs = 2 * len(self.bonds)  # effort & flow for each bond
 
         # General form of a state space model
         # x_dot = f(x, u)
@@ -333,7 +341,7 @@ class BondGraph:
             f[i] = self.solution[state_deriv]
 
         h: sp.Matrix = sp.zeros(n_outputs, 1)  # efforts then flows
-        for i, bond in enumerate(self.connections):
+        for i, bond in enumerate(self.bonds):
             h[i] = self.solution[bond.effort]
             h[i + n_outputs // 2] = self.solution[bond.flow]
 
@@ -352,7 +360,7 @@ class BondGraph:
         for elem in self.elements:
             G.add_node(elem.name, label=elem.name)
 
-        for bond in self.connections:
+        for bond in self.bonds:
             G.add_edge(bond.from_element.name, bond.to_element.name, label=bond.num)
 
         # https://networkx.org/documentation/stable/auto_examples/graph/plot_dag_layout.html
