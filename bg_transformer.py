@@ -53,10 +53,13 @@ subs_dict = {
     voltage_source.value: V_val
 }
 
-A_mat_val = np.array(A.subs(subs_dict), dtype=np.float64)
-B_mat_val = np.array(B.subs(subs_dict), dtype=np.float64)
-C_mat_val = np.array(C.subs(subs_dict), dtype=np.float64)
-D_mat_val = np.array(D.subs(subs_dict), dtype=np.float64)
+def to_numpy(M: sp.Matrix, subs: dict) -> np.ndarray:
+    return np.array(M.subs(subs), dtype=np.float64)
+
+A_mat_val = to_numpy(A, subs_dict)
+B_mat_val = to_numpy(B, subs_dict)
+C_mat_val = to_numpy(C, subs_dict)
+D_mat_val = to_numpy(D, subs_dict)
 
 # Initial conditions for the state variables --> not yet working
 #x0_entries = sp.symbols(f"x0_0:{n_states}", real=True)
