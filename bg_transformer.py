@@ -25,10 +25,6 @@ bond_graph.add_bond(Bond(transformer, junction0, "flow_out"))
 bond_graph.add_bond(Bond(junction0, capacitor, "flow_out"))
 bond_graph.add_bond(Bond(junction0, resistor7, "effort_out"))
 
-bond_graph.handle_bonds()
-bond_graph.handle_equations()
-bond_graph.get_solution_equations()
-
 A, B, C, D, n_states, n_inputs, n_outputs = bond_graph.get_state_space()
 
 # Print results

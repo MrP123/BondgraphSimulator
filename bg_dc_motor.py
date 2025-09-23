@@ -25,10 +25,7 @@ bond_graph.add_bond(Bond(gyrator, junction_mech, "effort_out"))
 bond_graph.add_bond(Bond(junction_mech, bearing, "flow_out"))
 bond_graph.add_bond(Bond(junction_mech, inertia, "effort_out"))
 
-bond_graph.handle_bonds()
-bond_graph.handle_equations()
-bond_graph.get_solution_equations()
-
+#bond_graph.get_solution_equations()
 A, B, C, D, n_states, n_inputs, n_outputs = bond_graph.get_state_space()
 
 # Print results
