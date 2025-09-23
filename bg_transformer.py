@@ -1,4 +1,4 @@
-from pyBG import BondGraph, Bond, SourceEffort, Inductor, Capacitor, Resistor, Transformer, OneJunction, ZeroJunction
+from pyBondGraph import BondGraph, Bond, SourceEffort, Inductor, Capacitor, Resistor, Transformer, OneJunction, ZeroJunction
 
 import sympy as sp
 import numpy as np
