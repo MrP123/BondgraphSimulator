@@ -7,7 +7,6 @@ import control as ctrl
 
 bond_graph = BondGraph()
 
-# https://en.wikipedia.org/wiki/Bond_graph#:~:text=denotes%20preferred%20causality.-,For%20the%20example%20provided,-%2C
 voltage_source = SourceEffort("V", "U_A(t)")
 junction_elec = OneJunction("J0_1")
 inductor = Inductor("I_elec", "L_A")
@@ -69,7 +68,7 @@ B_mat_val = to_numpy(B, subs_dict)
 C_mat_val = to_numpy(C, subs_dict)
 D_mat_val = to_numpy(D, subs_dict)
 
-x0_val = np.zeros_like(B_mat_val)
+x0_val = np.zeros_like(A_mat_val[0, :])
 
 sys = ctrl.ss(A_mat_val, B_mat_val, C_mat_val, D_mat_val)
 T, yout = ctrl.step_response(sys, T=0.5, X0=x0_val)

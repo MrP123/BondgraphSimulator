@@ -80,7 +80,7 @@ D_mat_val = to_numpy(D, subs_dict)
 fig, ax = bond_graph.plot()
 fig.show()
 
-x0_val = np.zeros_like(B_mat_val)
+x0_val = np.zeros_like(A_mat_val[0, :])
 
 sys = ctrl.ss(A_mat_val, B_mat_val, C_mat_val, D_mat_val)
 T, yout = ctrl.step_response(sys, T=25.0e-3, X0=x0_val)
