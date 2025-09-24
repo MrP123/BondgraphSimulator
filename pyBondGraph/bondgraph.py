@@ -10,8 +10,8 @@ type SolutionType = dict[sp.Expr, sp.Expr]
 
 class BondGraph:
     def __init__(self):
-        self.elements = set()
-        self.bonds: set[Bond] = set()
+        self.elements = []
+        self.bonds: list[Bond] = []
 
         self.state_vars: list[sp.Expr] = []
         self.equations: list[sp.Expr] = []
@@ -20,10 +20,16 @@ class BondGraph:
         self.solution: SolutionType = None
 
     def add_bond(self, bond: Bond) -> None:
-        self.bonds.add(bond)
+        if bond in self.bonds:
+            raise ValueError(f"Bond {bond} is already part of the bond graph.")
+
+        self.bonds.append(bond)
 
         for element in bond.elements:
-            self.elements.add(element)
+            if element in self.elements:
+                continue
+
+            self.elements.append(element)
 
             if isinstance(element, SourceEffort) or isinstance(element, SourceFlow):
                 self.inputs.append(element.value)
@@ -104,7 +110,8 @@ class BondGraph:
     def get_state_space(self) -> tuple[sp.Matrix, sp.Matrix, sp.Matrix, sp.Matrix, int, int, int]:
         # Retrieve solution if needed
         if self.solution is None:
-            self.get_solution_equations()
+            if not self.get_solution_equations():
+                raise ValueError("Could not compute solution.")
 
         n_states = len(self.state_vars)
         n_inputs = len(self.inputs)  # Number of inputs (sources)
@@ -170,5 +177,12 @@ class BondGraph:
             font_size=10,
             font_color="black",
             arrows=True,
+        )
+        nx.draw_networkx_edge_labels(
+            G,
+            pos,
+            edge_labels=nx.get_edge_attributes(G, "label"),
+            font_size=8,
+            ax=ax,
         )
         return fig, ax
