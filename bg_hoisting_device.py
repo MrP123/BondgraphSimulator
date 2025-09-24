@@ -94,6 +94,10 @@ B_mat_val = to_numpy(B, subs_dict)
 C_mat_val = to_numpy(C, subs_dict)
 D_mat_val = to_numpy(D, subs_dict)
 
+lambda_real_abs = np.abs(np.real(np.linalg.eigvals(A_mat_val)))
+stiffness_ratio = np.max(lambda_real_abs) / np.min(lambda_real_abs[np.nonzero(lambda_real_abs)])
+print(f"Stiffness ratio: {stiffness_ratio:.2e}")
+
 x0_val = np.zeros_like(A_mat_val[0, :])
 
 t_sim = np.linspace(0, 5, 10000)
