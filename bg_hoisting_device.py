@@ -67,7 +67,7 @@ K_t_val = 9.54e-3
 J_val = 1e-6
 R_b_val = 1e-6
 d_winch = 100e-3
-c_rope = 1/1e6
+c_rope = 1e-6
 m = 5e-3  # kg
 
 # ToDo: maybe make numeric value part of the element class?
