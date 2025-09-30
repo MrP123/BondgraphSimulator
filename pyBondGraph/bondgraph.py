@@ -2,14 +2,20 @@ import sympy as sp
 import networkx as nx
 import matplotlib.pyplot as plt
 
-from .core import Node, StatefulElement, Bond, ElementOnePort, ElementTwoPort, Junction
+from .core import Causality, Node, StatefulElement, Bond, ElementOnePort, ElementTwoPort, Junction
 from .elements import SourceEffort, SourceFlow, OneJunction, ZeroJunction
 
 type SolutionType = dict[sp.Expr, sp.Expr]
 
 
 class BondGraph:
+    """Represents a bond graph consisting of elements and the bonds that connect them.
+    """
+
     def __init__(self):
+        """Initializes a new bond graph without any elements or bonds.
+        """
+
         self.elements = []
         self.bonds: list[Bond] = []
 
@@ -20,6 +26,22 @@ class BondGraph:
         self.solution: SolutionType = None
 
     def add_bond(self, bond: Bond) -> None:
+        """Adds a bond to the bond graph by appending it to `self.bonds`.
+        This adds the connected elements to `self.elements` if they are not already present.
+        If the added bond connects to a `SourceEffort` or `SourceFlow`, its value is added to `self.inputs`.
+        This is needed for generating the state space representation.
+
+        Parameters
+        ----------
+        bond : Bond
+            The bond to be added to the bond graph.
+
+        Raises
+        ------
+        ValueError
+            If the bond is already part of the bond graph.
+        """
+
         if bond in self.bonds:
             raise ValueError(f"Bond {bond} is already part of the bond graph.")
 
@@ -35,7 +57,26 @@ class BondGraph:
                 self.inputs.append(element.value)
 
     def __handle_bonds(self) -> None:
+        """Handles the bonds in the bond graph by assigning them to the appropriate elements.
+        This assignment propagates the bond references to the elements, so that each element knows which bonds it is connected to.
+        """
+
         def handle_bond_element(element: Node, bond: Bond):
+            """Internal helper function to handle the assignment of a bond to an element.
+
+            Parameters
+            ----------
+            element : Node
+                Element of the bond to handle. Must be called with both `from_element` and `to_element` of the bond.
+            bond : Bond
+                The bond to assign to the element.
+
+            Raises
+            ------
+            ValueError
+                If the element is a junction and it is attemped to add a second strong bond.
+            """
+
             if isinstance(element, ElementOnePort):
                 element.bond = bond
 
@@ -49,7 +90,7 @@ class BondGraph:
                 element.bonds.append(bond)
 
                 if isinstance(element, OneJunction):
-                    if (bond.from_element == element and bond.causality == "effort_out") or (bond.to_element == element and bond.causality == "flow_out"):
+                    if (bond.from_element == element and bond.causality == Causality.EFFORT_OUT) or (bond.to_element == element and bond.causality == Causality.FLOW_OUT):
                         # bond is strong bond for one junction
                         if element.strong_bond is None:
                             element.strong_bond = bond
@@ -58,7 +99,7 @@ class BondGraph:
                             raise ValueError(f"OneJunction {element} already has a strong bond: {element.strong_bond}. Cannot assign {bond}.")
 
                 elif isinstance(element, ZeroJunction):
-                    if (bond.from_element == element and bond.causality == "flow_out") or (bond.to_element == element and bond.causality == "effort_out"):
+                    if (bond.from_element == element and bond.causality == Causality.FLOW_OUT) or (bond.to_element == element and bond.causality == Causality.EFFORT_OUT):
                         # bond is strong bond for zero junction
                         if element.strong_bond is None:
                             element.strong_bond = bond
@@ -66,11 +107,21 @@ class BondGraph:
                         else:
                             raise ValueError(f"ZeroJunction {element} already has a strong bond: {element.strong_bond}. Cannot assign {bond}.")
 
+        # Call helper function for both elements of each bond
         for bond in self.bonds:
             handle_bond_element(bond.from_element, bond)
             handle_bond_element(bond.to_element, bond)
 
     def __handle_equations(self) -> None:
+        """Accumulates the equations from all elements and junctions in the bond graph.
+        Also collects the state variables from all stateful elements.
+
+        Raises
+        ------
+        ValueError
+            If an element is not fully connected with bonds.
+        """
+
         for element in self.elements:
             if isinstance(element, ElementOnePort):
                 bond = element.bond
@@ -96,6 +147,18 @@ class BondGraph:
                 self.equations.extend(element.equations)
 
     def get_solution_equations(self) -> SolutionType:
+        """Returns the symbolic equations defining the solution of the bond graph.
+        The solution is computed by solving the accumulated equations of the bond graph symbolically using `sympy.solve`.
+        The bond counter is reset after computation to allow for future bond graphs to be created without conflicts.
+        This is a temporary workaround and should be (urgently) improved in the future.
+        
+        Returns
+        -------
+        SolutionType
+            A dictionary mapping each symbolic variable to its solved expression.
+            The keys include the time derivatives of the state variables and the efforts and flows of all bonds.
+        """
+
         self.__handle_bonds()
         self.__handle_equations()
         Bond.counter = 0  # Reset bond counter for future bond graphs after solution has been computed --> ToDo: fix this hacky solution
@@ -108,6 +171,39 @@ class BondGraph:
         return self.solution
 
     def get_state_space(self) -> tuple[sp.Matrix, sp.Matrix, sp.Matrix, sp.Matrix, int, int, int]:
+        """Calculates the linear state space representation of the bond graph.
+        This method automatically calls `get_solution_equations` if the solution has not yet been computed.
+
+        Depending on the number of state variables, inputs, and outputs, the state space representation is either SISO, MIMO or a hybrid.
+        The general form of a (nonlinear) state space model is given by the equations:
+            x_dot = f(x, u)
+                y = h(x, u)
+        where x is the state vector, u is the input vector, and y is the output vector.
+        As the bond graph framework currently only supports linear elements, the state space representation can be simplified to a linear form.
+        The linear state space representation is given by the matrices A, B, C, D in the equations:
+            x_dot = A*x + B*u
+                y = C*x + D*u
+        The matrices are computed by taking the Jacobians of the functions f and h with respect to the state variables and inputs.
+        The output y is defined to be all efforts and flows of all bonds in the bond graph, with the efforts coming first and then the flows.
+        The input u is defined to be all sources (i.e. `SourceEffort` and `SourceFlow` elements) in the bond graph.
+        The state variables x are defined to be the state variables of all `StatefulElement` elements in the bond graph.
+
+        Returns
+        -------
+        tuple[sp.Matrix, sp.Matrix, sp.Matrix, sp.Matrix, int, int, int]
+            Returns the matrices A, B, C, D of the state space representation,
+            as well as the number of states, inputs, and outputs.
+            A \in R^(n_states x n_states)
+            B \in R^(n_states x n_inputs)
+            C \in R^(n_outputs x n_states)
+            D \in R^(n_outputs x n_inputs)
+
+        Raises
+        ------
+        ValueError
+            If the system of equations for this bond graph could not be solved.
+        """
+
         # Retrieve solution if needed
         if self.solution is None:
             if not self.get_solution_equations():
@@ -145,7 +241,22 @@ class BondGraph:
 
         return A, B, C, D, n_states, n_inputs, n_outputs
 
-    def plot(self, layout: callable = nx.spectral_layout, **kwargs):
+    def plot(self, layout: callable = nx.spectral_layout, **kwargs) -> tuple[plt.Figure, plt.Axes]:
+        """Plots the bond graph as a `networkx` graph.
+
+        Parameters
+        ----------
+        layout : callable, optional
+            `networkx` layout function for plotting the graph, by default `nx.spectral_layout`
+            This is only called if the graph is not a directed acyclic graph (DAG).
+            If the graph is a DAG, a `multipartite_layout` is used instead.
+
+        Returns
+        -------
+        tuple[plt.Figure, plt.Axes]
+            Matplotlib Figure and axes objects for the plot.
+        """
+
         G = nx.DiGraph()
 
         for elem in self.elements:

@@ -1,6 +1,18 @@
 from abc import ABC, abstractmethod
+from enum import Enum
 
 import sympy as sp
+
+class Causality(Enum):
+    """Enumeration for bond causality types.
+    This definition is always from the perspective of the `from_element`.
+    Therefore a `Bond(OneJunction(...), Inductor(...), "effort_out")` means that the
+    `OneJunction` imposes effort on the `Inductor`, meaning it has an equivalent `effort_in` causality.
+    Likewise a `Bond(OneJunction(...), Capacitor(...), "flow_out")` means that the `OneJunction` imposes
+    flow on the `Capacitor`, meaning it has an equivalent `flow_in`/`effort_out` causality.
+    """
+    EFFORT_OUT = "effort_out"
+    FLOW_OUT = "flow_out"
 
 
 class StatefulElement(ABC):
@@ -36,7 +48,7 @@ class Bond:
 
     counter = 0
 
-    def __init__(self, from_element: Node, to_element: Node, causality: str):
+    def __init__(self, from_element: Node, to_element: Node, causality: str | Causality):
         """Create a bond between two elements with specified causality.
         The positive direction of this power bond is from `from_element` to `to_element`.
         Efforts and flows are represented by symbolic `sympy.Symbol`s that are strictly real-valued.
@@ -47,8 +59,9 @@ class Bond:
             The element where the bond originates.
         to_element : Node
             The element where the bond terminates.
-        causality : str
+        causality : str | Causality
             The causality of the bond, either `effort_out` or `flow_out`.
+            If a string is provided, it is converted to the corresponding `Causality` enum.
             This definition is always from the perspective of the `from_element`.
             Therefore a `Bond(OneJunction(...), Inductor(...), "effort_out")` means that the
             `OneJunction` imposes effort on the `Inductor`, meaning it has an equivalent `effort_in` causality.
@@ -63,10 +76,12 @@ class Bond:
 
         self.from_element = from_element
         self.to_element = to_element
-        self.causality = causality
-
-        if causality not in ["effort_out", "flow_out"]:
-            raise ValueError(f"Invalid causality: {causality}. Must be 'effort_out' or 'flow_out'.")
+        
+        if isinstance(causality, str):
+            causality = Causality(causality.lower()) # Convert string to Causality enum, case insensitive
+            # --> automatically raises ValueError if string is not valid
+        
+        self.causality: Causality = causality
 
         self.num = Bond.counter
         Bond.counter += 1

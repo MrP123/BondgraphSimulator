@@ -1,4 +1,4 @@
-from .core import StatefulElement, ElementOnePort, ElementTwoPort, Junction
+from .core import Causality, StatefulElement, ElementOnePort, ElementTwoPort, Junction
 
 import sympy as sp
 
@@ -170,9 +170,9 @@ class Resistor(ElementOnePort):
         """
 
         # Resistance: e = R * f
-        if self.bond.causality == "effort_out":
+        if self.bond.causality == Causality.EFFORT_OUT:
             return [self.bond.flow - 1 / self.value * self.bond.effort]
-        elif self.bond.causality == "flow_out":
+        elif self.bond.causality == Causality.FLOW_OUT:
             return [self.bond.effort - self.value * self.bond.flow]
 
 
@@ -216,12 +216,12 @@ class Transformer(ElementTwoPort):
         if self.bond1.causality != self.bond2.causality:
             raise ValueError("Both bonds must have the same causality for a transformer element.")
 
-        if self.bond1.causality == "effort_out":
+        if self.bond1.causality == Causality.EFFORT_OUT:
             return [
                 self.bond1.flow - 1 / self.value * self.bond2.flow,
                 self.bond2.effort - 1 / self.value * self.bond1.effort,
             ]
-        elif self.bond1.causality == "flow_out":
+        elif self.bond1.causality == Causality.FLOW_OUT:
             return [
                 self.bond1.effort - self.value * self.bond2.effort,
                 self.bond2.flow - self.value * self.bond1.flow,
@@ -268,12 +268,12 @@ class Gyrator(ElementTwoPort):
         if self.bond1.causality == self.bond2.causality:
             raise ValueError("Both bonds must have the different causality for a gyrator element.")
 
-        if self.bond1.causality == "effort_out":
+        if self.bond1.causality == Causality.EFFORT_OUT:
             return [
                 self.bond1.flow - 1 / self.value * self.bond2.effort,
                 self.bond2.flow - 1 / self.value * self.bond1.effort,
             ]
-        elif self.bond1.causality == "flow_out":
+        elif self.bond1.causality == Causality.FLOW_OUT:
             return [
                 self.bond1.effort - self.value * self.bond2.flow,
                 self.bond2.effort - self.value * self.bond1.flow,
