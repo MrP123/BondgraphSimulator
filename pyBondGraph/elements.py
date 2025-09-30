@@ -80,7 +80,7 @@ class Capacitor(ElementOnePort, StatefulElement):
     def equations(self) -> list[sp.Expr]:
         """Returns the symbolic equations defining the behavior of the linear compliance/capacitance.
         Formulated in the derivative of the internal state_var, stemming from integral causality.
-        
+
         Returns
         -------
         list[sp.Expr]

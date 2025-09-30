@@ -2,19 +2,25 @@ import sympy as sp
 import networkx as nx
 import matplotlib.pyplot as plt
 
-from .core import Causality, Node, StatefulElement, Bond, ElementOnePort, ElementTwoPort, Junction
+from .core import (
+    Causality,
+    Node,
+    StatefulElement,
+    Bond,
+    ElementOnePort,
+    ElementTwoPort,
+    Junction,
+)
 from .elements import SourceEffort, SourceFlow, OneJunction, ZeroJunction
 
 type SolutionType = dict[sp.Expr, sp.Expr]
 
 
 class BondGraph:
-    """Represents a bond graph consisting of elements and the bonds that connect them.
-    """
+    """Represents a bond graph consisting of elements and the bonds that connect them."""
 
     def __init__(self):
-        """Initializes a new bond graph without any elements or bonds.
-        """
+        """Initializes a new bond graph without any elements or bonds."""
 
         self.elements = []
         self.bonds: list[Bond] = []
@@ -151,7 +157,7 @@ class BondGraph:
         The solution is computed by solving the accumulated equations of the bond graph symbolically using `sympy.solve`.
         The bond counter is reset after computation to allow for future bond graphs to be created without conflicts.
         This is a temporary workaround and should be (urgently) improved in the future.
-        
+
         Returns
         -------
         SolutionType
@@ -283,7 +289,7 @@ class BondGraph:
             pos,
             ax=ax,
             with_labels=True,
-            node_size=2000, 
+            node_size=2000,
             node_color="lightblue",
             font_size=10,
             font_color="black",

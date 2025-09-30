@@ -3,6 +3,7 @@ from enum import Enum
 
 import sympy as sp
 
+
 class Causality(Enum):
     """Enumeration for bond causality types.
     This definition is always from the perspective of the `from_element`.
@@ -11,6 +12,7 @@ class Causality(Enum):
     Likewise a `Bond(OneJunction(...), Capacitor(...), "flow_out")` means that the `OneJunction` imposes
     flow on the `Capacitor`, meaning it has an equivalent `flow_in`/`effort_out` causality.
     """
+
     EFFORT_OUT = "effort_out"
     FLOW_OUT = "flow_out"
 
@@ -19,6 +21,7 @@ class StatefulElement(ABC):
     """Base class for all stateful elements (capacitor, inductor) in the bond graph.
     Requires implementation of a `state_var` property that returns the symbolic state variable associated with the element.
     """
+
     @property
     @abstractmethod
     def state_var(self) -> sp.Symbol:
@@ -76,11 +79,11 @@ class Bond:
 
         self.from_element = from_element
         self.to_element = to_element
-        
+
         if isinstance(causality, str):
             causality = Causality(causality.lower()) # Convert string to Causality enum, case insensitive
             # --> automatically raises ValueError if string is not valid
-        
+
         self.causality: Causality = causality
 
         self.num = Bond.counter

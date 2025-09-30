@@ -1,4 +1,4 @@
-from .core import Bond
+from .core import Bond, Causality
 from .elements import (
     SourceEffort,
     SourceFlow,
@@ -14,6 +14,7 @@ from .bondgraph import BondGraph
 
 __all__ = [
     "Bond",
+    "Causality",
     "SourceEffort",
     "SourceFlow",
     "OneJunction",
