@@ -2,11 +2,24 @@ import streamlit as st
 from streamlit_flow import streamlit_flow
 from streamlit_flow.elements import StreamlitFlowNode, StreamlitFlowEdge
 from streamlit_flow.state import StreamlitFlowState
-from streamlit_flow.layouts import TreeLayout, RadialLayout
+from streamlit_flow.layouts import TreeLayout
 import random
 from uuid import uuid4
 
-from pyBG import BondGraph, Bond, SourceEffort, Inductor, Capacitor, Resistor, Transformer, OneJunction, ZeroJunction, ElementOnePort, ElementTwoPort
+from pyBondGraph.bondgraph import (
+    BondGraph,
+    Bond,
+    SourceEffort,
+    Inductor,
+    Capacitor,
+    Resistor,
+    Transformer,
+    OneJunction,
+    ZeroJunction,
+    ElementOnePort,
+    ElementTwoPort,
+)
+
 bond_graph = BondGraph()
 
 voltage_source = SourceEffort("V", "V(t)")
@@ -26,17 +39,14 @@ bond_graph.add_bond(Bond(transformer, junction0, "flow_out"))
 bond_graph.add_bond(Bond(junction0, capacitor, "flow_out"))
 bond_graph.add_bond(Bond(junction0, resistor7, "effort_out"))
 
-bond_graph.handle_bonds()
-bond_graph.handle_equations()
 bond_graph.get_solution_equations()
-
 
 st.set_page_config("Streamlit Flow Example", layout="wide")
 
 st.title("Streamlit Flow Example")
 
 
-if 'curr_state' not in st.session_state:
+if "curr_state" not in st.session_state:
     nodes = []
     for i, element in enumerate(bond_graph.elements):
         if isinstance(element, SourceEffort):
@@ -49,19 +59,60 @@ if 'curr_state' not in st.session_state:
             nodes.append(StreamlitFlowNode(element.name, (i, 0), {'content': repr(element)}, 'default', 'right', 'left'))
 
     edges = []
-    for i, bond in enumerate(bond_graph.connections):
+    for bond in bond_graph.bonds:
         from_element, to_element = bond.elements
-        edges.append(StreamlitFlowEdge(f"{from_element.name}-{to_element.name}", from_element.name, to_element.name, animated=False, marker_start={}, marker_end={'type': 'arrow'}))
+        edges.append(
+            StreamlitFlowEdge(
+                f"{from_element.name}-{to_element.name}",
+                from_element.name,
+                to_element.name,
+                animated=False,
+                marker_start={},
+                marker_end={"type": "arrow", "color": "#000000", "strokeWidth": 1.5},
+                label=f"{bond.num}",
+                label_show_bg=True,
+                label_bg_style={"fill": "#ffffff", "fillOpacity": 0.7},
+                style={"stroke": "#000000", "strokeWidth": 1.5},
+            )
+        )
 
     st.session_state.curr_state = StreamlitFlowState(nodes, edges)
 
 col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
-    if st.button("Add node"):
-        new_node = StreamlitFlowNode(str(f"st-flow-node_{uuid4()}"), (0, 0), {'content': f'Node {len(st.session_state.curr_state.nodes) + 1}'}, 'default', 'right', 'left')
-        st.session_state.curr_state.nodes.append(new_node)
-        st.rerun()
+
+    element_type = st.selectbox("Element Type", [SourceEffort, Inductor, Capacitor, Resistor, Transformer, OneJunction, ZeroJunction], format_func=lambda x: x.__name__)
+    with st.form("Add Element"):
+        element_name = st.text_input("Element Name", value="")
+        
+        if element_type not in (OneJunction, ZeroJunction):
+            element_value = st.text_input("Element Value (e.g. R, L, C, V(t)", value="")
+        else:
+            element_value = None
+
+        submitted = st.form_submit_button("Add Element")
+
+        if submitted and element_name:
+            if element_type in (OneJunction, ZeroJunction):
+                element = element_type(element_name)
+            elif element_value:
+                element = element_type(element_name, element_value)
+
+            if isinstance(element, SourceEffort):
+                st.session_state.curr_state.nodes.append(StreamlitFlowNode(element.name, (0, 0), {'content': repr(element)}, 'input', source_position='right'))
+            elif isinstance(element, ElementOnePort):
+                st.session_state.curr_state.nodes.append(StreamlitFlowNode(element.name, (0, 0), {'content': repr(element)}, 'output', target_position='left'))
+            elif isinstance(element, ElementTwoPort):
+                st.session_state.curr_state.nodes.append(StreamlitFlowNode(element.name, (0, 0), {'content': repr(element)}, 'default', 'right', 'left'))
+            else:
+                st.session_state.curr_state.nodes.append(StreamlitFlowNode(element.name, (0, 0), {'content': repr(element)}, 'default', 'right', 'left'))
+            st.rerun()
+
+    #if st.button("Add node"):
+    #    new_node = StreamlitFlowNode(str(f"st-flow-node_{uuid4()}"), (0, 0), {'content': f'Node {len(st.session_state.curr_state.nodes) + 1}'}, 'default', 'right', 'left')
+    #    st.session_state.curr_state.nodes.append(new_node)
+    #    st.rerun()
 
 with col2:
     if st.button("Delete Random Node"):
@@ -83,7 +134,7 @@ with col3:
             if not any(edge.id == new_edge.id for edge in st.session_state.curr_state.edges):
                 st.session_state.curr_state.edges.append(new_edge)
             st.rerun()
-    
+
 with col4:
     if st.button("Delete Random Edge"):
         if len(st.session_state.curr_state.edges) > 0:
@@ -102,27 +153,26 @@ with col5:
                 new_edge = StreamlitFlowEdge(f"{source.id}-{target.id}", source.id, target.id, animated=True)
                 if not any(edge.id == new_edge.id for edge in edges):
                     edges.append(new_edge)
-        st.session_state.curr_state = StreamlitFlowState(
-            nodes=nodes,
-            edges=edges
-        )
+        st.session_state.curr_state = StreamlitFlowState(nodes=nodes, edges=edges)
         st.rerun()
 
-
-st.session_state.curr_state = streamlit_flow('example_flow', 
-                                st.session_state.curr_state, 
-                                layout=TreeLayout(direction='right'), 
-                                fit_view=True, 
-                                height=500, 
-                                enable_node_menu=True,
-                                enable_edge_menu=True,
-                                enable_pane_menu=True,
-                                get_edge_on_click=True,
-                                get_node_on_click=True, 
-                                show_minimap=True, 
-                                hide_watermark=True, 
-                                allow_new_edges=True,
-                                min_zoom=0.1)
+st.session_state.curr_state = streamlit_flow(
+    "example_flow",
+    st.session_state.curr_state,
+    layout=TreeLayout(direction="right"),
+    fit_view=True,
+    height=750,
+    # enable_node_menu=True,
+    # enable_edge_menu=True,
+    # enable_pane_menu=True,
+    # get_edge_on_click=True,
+    # get_node_on_click=True,
+    # show_minimap=True,
+    show_controls=False,
+    hide_watermark=True,
+    allow_new_edges=True,
+    min_zoom=0.1,
+)
 
 
 col1, col2, col3 = st.columns(3)
