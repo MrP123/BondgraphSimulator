@@ -1,5 +1,6 @@
 import sympy as sp
 import networkx as nx
+import numpy as np
 import matplotlib.pyplot as plt
 
 from .core import (
@@ -199,10 +200,10 @@ class BondGraph:
         tuple[sp.Matrix, sp.Matrix, sp.Matrix, sp.Matrix, int, int, int]
             Returns the matrices A, B, C, D of the state space representation,
             as well as the number of states, inputs, and outputs.
-            A \in R^(n_states x n_states)
-            B \in R^(n_states x n_inputs)
-            C \in R^(n_outputs x n_states)
-            D \in R^(n_outputs x n_inputs)
+            A in R^(n_states x n_states)
+            B in R^(n_states x n_inputs)
+            C in R^(n_outputs x n_states)
+            D in R^(n_outputs x n_inputs)
 
         Raises
         ------
@@ -261,6 +262,10 @@ class BondGraph:
         -------
         tuple[plt.Figure, plt.Axes]
             Matplotlib Figure and axes objects for the plot.
+        Raises
+        ------
+        ValueError
+            If an edge has no valid causality assigned.
         """
 
         G = nx.DiGraph()
@@ -269,7 +274,7 @@ class BondGraph:
             G.add_node(elem.name, label=elem.name)
 
         for bond in self.bonds:
-            G.add_edge(bond.from_element.name, bond.to_element.name, label=bond.num)
+            G.add_edge(bond.from_element.name, bond.to_element.name, label=bond.num, causality=bond.causality)
 
         # https://networkx.org/documentation/stable/auto_examples/graph/plot_dag_layout.html
         if nx.is_directed_acyclic_graph(G):
@@ -284,7 +289,8 @@ class BondGraph:
             pos = layout(G, **kwargs)
 
         fig, ax = plt.subplots(figsize=(10, 8))
-        nx.draw(
+        ax.set_axis_off()
+        nx.draw_networkx(
             G,
             pos,
             ax=ax,
@@ -302,4 +308,80 @@ class BondGraph:
             font_size=8,
             ax=ax,
         )
+
+        # Function to add a perpendicular line
+        def draw_causal_stroke(ax, p1, p2, at="head", length=20, node_size=2000, padding=2):
+            """Draw a causal stroke perpendicular to the edge (p1 -> p2).
+
+            Parameters
+            ----------
+            ax : matplotlib.axes.Axes
+                The axes to draw on.
+            p1 : tuple[float, float]
+                The (x, y) coordinates of the first node.
+            p2 : tuple[float, float]
+                The (x, y) coordinates of the second node.
+            at : str, optional
+                Where to draw the stroke, by default "head"
+            length : int, optional
+                The length of the stroke, by default 20
+            node_size : int, optional
+                The size of the nodes, by default 2000
+            padding : int, optional
+                The padding between the node and the stroke, by default 2
+
+            Raises
+            ------
+            ValueError
+                If the 'at' parameter is not "head" or "tail".
+            """
+
+            # --- Convert node size (points^2) to radius in pixels ---
+            radius_points = np.sqrt(node_size / np.pi)
+            radius_pixels = radius_points * ax.figure.dpi / 72.0  # 1 point = 1/72 inch
+            offset = radius_pixels + padding   # + padding (in px) so stroke sits outside node
+
+            # Transform points to display (pixel) coordinates
+            p1_disp = ax.transData.transform(p1)
+            p2_disp = ax.transData.transform(p2)
+
+            # Edge vector in display coords
+            vec = p2_disp - p1_disp
+            norm = np.linalg.norm(vec)
+            if norm == 0:
+                return
+            uvec = vec / norm
+
+            # Perpendicular in display coords
+            perp = np.array([-uvec[1], uvec[0]])
+
+            # Base point (head or tail), offset in pixels
+            if at == "head":
+                base_disp = p2_disp - uvec * offset
+            elif at == "tail":
+                base_disp = p1_disp + uvec * offset
+            else:
+                raise ValueError(f"Invalid value for 'at': {at}")
+
+            # Stroke endpoints in display coords
+            p_start_disp = base_disp - perp * (length / 2)
+            p_end_disp   = base_disp + perp * (length / 2)
+
+            # Transform back to data coords for plotting
+            p_start = ax.transData.inverted().transform(p_start_disp)
+            p_end   = ax.transData.inverted().transform(p_end_disp)
+
+            ax.plot([p_start[0], p_end[0]], [p_start[1], p_end[1]], color="k", lw=1.0)
+
+        # Add perpendicular lines to edges
+        for u, v, data in G.edges(data=True):
+            causality = data.get("causality", None)
+
+            if causality is Causality.EFFORT_OUT:
+                draw_causal_stroke(ax, pos[u], pos[v], at="head", padding=-2)
+            elif causality is Causality.FLOW_OUT:
+                draw_causal_stroke(ax, pos[u], pos[v], at="tail", padding=-2)
+            else:
+                raise ValueError(f"Edge {u}->{v} has no valid causality: {causality} --> this should never happen!")
+
         return fig, ax
