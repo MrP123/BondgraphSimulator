@@ -177,7 +177,7 @@ class BondGraph:
         )
         return self.solution
 
-    def get_state_space(self) -> tuple[sp.Matrix, sp.Matrix, sp.Matrix, sp.Matrix, int, int, int]:
+    def get_state_space(self) -> tuple[sp.Matrix, sp.Matrix, sp.Matrix, sp.Matrix, sp.Matrix, int, int, int]:
         """Calculates the linear state space representation of the bond graph.
         This method automatically calls `get_solution_equations` if the solution has not yet been computed.
 
@@ -197,13 +197,14 @@ class BondGraph:
 
         Returns
         -------
-        tuple[sp.Matrix, sp.Matrix, sp.Matrix, sp.Matrix, int, int, int]
-            Returns the matrices A, B, C, D of the state space representation,
+        tuple[sp.Matrix, sp.Matrix, sp.Matrix, sp.Matrix, sp.Matrix, int, int, int]
+            Returns the matrices A, B, C, D of the state space representation, the state vector x,
             as well as the number of states, inputs, and outputs.
             A in R^(n_states x n_states)
             B in R^(n_states x n_inputs)
             C in R^(n_outputs x n_states)
             D in R^(n_outputs x n_inputs)
+            x in R^(n_states x 1)
 
         Raises
         ------
@@ -246,7 +247,7 @@ class BondGraph:
         D = h.jacobian(self.inputs)
         # alternatively could use sp.linear_eq_to_matrix(...)
 
-        return A, B, C, D, n_states, n_inputs, n_outputs
+        return A, B, C, D, sp.Matrix(self.state_vars), n_states, n_inputs, n_outputs
 
     def plot(self, layout: callable = nx.spectral_layout, **kwargs) -> tuple[plt.Figure, plt.Axes]:
         """Plots the bond graph as a `networkx` graph.
