@@ -35,11 +35,11 @@ bond_graph.add_bond(Bond(junction_mass_1, mass_1, "effort_out"))
 bond_graph.add_bond(Bond(junction_mass_1, spring_1, "flow_out"))
 bond_graph.add_bond(Bond(junction_mass_1, damper_1, "flow_out"))
 
-A, B, C, D, n_states, n_inputs, n_outputs = bond_graph.get_state_space()
+A, B, C, D, x, n_states, n_inputs, n_outputs = bond_graph.get_state_space()
 
 # Print results
 print("x_vec:")
-sp.pprint(bond_graph.state_vars)
+sp.pprint(x)
 print("u_vec:")
 sp.pprint(bond_graph.inputs)
 print("Matrix A:")

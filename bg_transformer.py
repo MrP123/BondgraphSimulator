@@ -25,7 +25,7 @@ bond_graph.add_bond(Bond(transformer, junction0, "flow_out"))
 bond_graph.add_bond(Bond(junction0, capacitor, "flow_out"))
 bond_graph.add_bond(Bond(junction0, resistor7, "effort_out"))
 
-A, B, C, D, n_states, n_inputs, n_outputs = bond_graph.get_state_space()
+A, B, C, D, x, n_states, n_inputs, n_outputs = bond_graph.get_state_space()
 
 # Print results
 print("Matrix A:")

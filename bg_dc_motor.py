@@ -1,4 +1,4 @@
-from pyBondGraph import BondGraph, Bond, SourceEffort, Inductor, Resistor, OneJunction, Gyrator
+from pyBondGraph import BondGraph, Causality, Bond, SourceEffort, Inductor, Resistor, OneJunction, Gyrator
 
 import sympy as sp
 import numpy as np
@@ -8,25 +8,27 @@ import control as ctrl
 bond_graph = BondGraph()
 
 voltage_source = SourceEffort("V", "U_A(t)")
-junction_elec = OneJunction("J0_1")
+junction_elec = OneJunction("J1_1")
 inductor = Inductor("I_elec", "L_A")
 resistor = Resistor("R_elec", "R_A")
 gyrator = Gyrator("G1", "K_t")
-junction_mech = OneJunction("J1_1")
+junction_mech = OneJunction("J1_2")
 bearing = Resistor("R_mech", "R_B")
 inertia = Inductor("I_mech", "J")
 
-bond_graph.add_bond(Bond(voltage_source, junction_elec, "effort_out"))
-bond_graph.add_bond(Bond(junction_elec, resistor, "flow_out"))
-bond_graph.add_bond(Bond(junction_elec, inductor, "effort_out"))
-bond_graph.add_bond(Bond(junction_elec, gyrator, "flow_out"))
-bond_graph.add_bond(Bond(gyrator, junction_mech, "effort_out"))
-bond_graph.add_bond(Bond(junction_mech, bearing, "flow_out"))
-bond_graph.add_bond(Bond(junction_mech, inertia, "effort_out"))
+bond_graph.add_bond(Bond(voltage_source, junction_elec, Causality.EFFORT_OUT))
+bond_graph.add_bond(Bond(junction_elec, resistor, Causality.FLOW_OUT))
+bond_graph.add_bond(Bond(junction_elec, inductor, Causality.EFFORT_OUT))
+bond_graph.add_bond(Bond(junction_elec, gyrator, Causality.FLOW_OUT))
+bond_graph.add_bond(Bond(gyrator, junction_mech, Causality.EFFORT_OUT))
+bond_graph.add_bond(Bond(junction_mech, bearing, Causality.FLOW_OUT))
+bond_graph.add_bond(Bond(junction_mech, inertia, Causality.EFFORT_OUT))
 
-A, B, C, D, n_states, n_inputs, n_outputs = bond_graph.get_state_space()
+A, B, C, D, x, n_states, n_inputs, n_outputs = bond_graph.get_state_space()
 
 # Print results
+print("\nState vector x:")
+sp.pprint(x)
 print("Matrix A:")
 sp.pprint(A)
 print("\nMatrix B:")
@@ -35,7 +37,6 @@ print("\nMatrix C:")
 sp.pprint(C)
 print("\nMatrix D:")
 sp.pprint(D)
-
 
 fig, ax = bond_graph.plot()
 fig.show()
