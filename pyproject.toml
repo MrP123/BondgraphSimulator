@@ -1,0 +1,27 @@
+[project]
+name = "pyBondGraph"
+version = "0.0.1"
+description = "Modelling tool for linear bond graph systems in Python"
+readme = "README.md"
+authors = [
+    {name = "Matthias Panny", email = "matthias.panny@mci.edu"},
+]
+license = "CC-BY-NC-SA-4.0"
+requires-python = ">=3.13"
+dynamic = ["dependencies"]
+
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["pyBondGraph"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements_clean.txt"]}
+
+[project.optional-dependencies]
+streamlit = [
+    "streamlit>=1.47.0",
+    "streamlit-flow-component>=1.6.1"
+]
