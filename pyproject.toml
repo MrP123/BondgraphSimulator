@@ -18,7 +18,7 @@ build-backend = "setuptools.build_meta"
 packages = ["pyBondGraph"]
 
 [tool.setuptools.dynamic]
-dependencies = {file = ["requirements_clean.txt"]}
+dependencies = {file = ["requirements.txt"]}
 
 [project.optional-dependencies]
 streamlit = [
