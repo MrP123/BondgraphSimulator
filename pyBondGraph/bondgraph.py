@@ -173,7 +173,9 @@ class BondGraph:
         state_derivatives = [sp.Derivative(var, "t") for var in self.state_vars]
         self.solution = sp.solve(
             self.equations,
-            state_derivatives + [b.effort for b in self.bonds] + [b.flow for b in self.bonds],
+            state_derivatives
+            + [b.effort for b in self.bonds]
+            + [b.flow for b in self.bonds],
         )
         return self.solution
 
@@ -275,7 +277,12 @@ class BondGraph:
             G.add_node(elem.name, label=elem.name)
 
         for bond in self.bonds:
-            G.add_edge(bond.from_element.name, bond.to_element.name, label=bond.num, causality=bond.causality)
+            G.add_edge(
+                bond.from_element.name,
+                bond.to_element.name,
+                label=bond.num,
+                causality=bond.causality,
+            )
 
         # https://networkx.org/documentation/stable/auto_examples/graph/plot_dag_layout.html
         if nx.is_directed_acyclic_graph(G):
@@ -366,11 +373,11 @@ class BondGraph:
 
             # Stroke endpoints in display coords
             p_start_disp = base_disp - perp * (length / 2)
-            p_end_disp   = base_disp + perp * (length / 2)
+            p_end_disp = base_disp + perp * (length / 2)
 
             # Transform back to data coords for plotting
             p_start = ax.transData.inverted().transform(p_start_disp)
-            p_end   = ax.transData.inverted().transform(p_end_disp)
+            p_end = ax.transData.inverted().transform(p_end_disp)
 
             ax.plot([p_start[0], p_end[0]], [p_start[1], p_end[1]], color="k", lw=1.0)
 

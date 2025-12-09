@@ -94,6 +94,9 @@ class Capacitor(ElementOnePort, StatefulElement):
         ]
 
 
+type Compliance = Capacitor  # Alias for Compliance element
+
+
 class Inductor(ElementOnePort, StatefulElement):
     """Represents a linear inertia/inductance element in the bond graph.
     An inductor relates the flow of its port with the integral of its effort by a constant inductance value.
@@ -140,6 +143,9 @@ class Inductor(ElementOnePort, StatefulElement):
         ]
 
 
+type Inertance = Inductor  # Alias for Inertia element
+
+
 class Resistor(ElementOnePort):
     """Represents a linear resistance/damper element in the bond graph.
     A resistor relates the effort and flow of its port by a constant resistance value.
@@ -174,6 +180,9 @@ class Resistor(ElementOnePort):
             return [self.bond.flow - 1 / self.value * self.bond.effort]
         elif self.bond.causality == Causality.FLOW_OUT:
             return [self.bond.effort - self.value * self.bond.flow]
+
+
+type Resistance = Resistor  # Alias for Resistance element
 
 
 class Transformer(ElementTwoPort):
