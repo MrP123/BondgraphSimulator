@@ -3,6 +3,8 @@ import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
 
+from collections.abc import Callable
+
 from .core import (
     Causality,
     Node,
@@ -22,6 +24,8 @@ class BondGraph:
 
     def __init__(self):
         """Initializes a new bond graph without any elements or bonds."""
+
+        Bond.counter = 0  # Reset bond counter for future bond graphs after solution has been computed --> ToDo: fix this hacky solution
 
         self.elements = []
         self.bonds: list[Bond] = []
@@ -251,12 +255,12 @@ class BondGraph:
 
         return A, B, C, D, sp.Matrix(self.state_vars), n_states, n_inputs, n_outputs
 
-    def plot(self, layout: callable = nx.spectral_layout, **kwargs) -> tuple[plt.Figure, plt.Axes]:
+    def plot(self, layout: Callable[[nx.Graph, ...], dict] = nx.spectral_layout, **kwargs) -> tuple[plt.Figure, plt.Axes]:
         """Plots the bond graph as a `networkx` graph.
 
         Parameters
         ----------
-        layout : callable, optional
+        layout : Callable[[nx.Graph, ...], dict], optional
             `networkx` layout function for plotting the graph, by default `nx.spectral_layout`
             This is only called if the graph is not a directed acyclic graph (DAG).
             If the graph is a DAG, a `multipartite_layout` is used instead.
