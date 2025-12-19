@@ -13,6 +13,8 @@ from .elements import (
     Transformer,
     Gyrator,
 )
+from .sensors import IntegratedEffortSensor, IntegratedFlowSensor
+
 from .bondgraph import BondGraph
 
 __all__ = [
@@ -31,4 +33,6 @@ __all__ = [
     "Transformer",
     "Gyrator",
     "BondGraph",
+    "IntegratedEffortSensor",
+    "IntegratedFlowSensor",
 ]
