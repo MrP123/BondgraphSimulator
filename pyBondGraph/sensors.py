@@ -38,7 +38,7 @@ class IntegratedEffortSensor(ElementOnePort, StatefulElement):
             A list of symbolic equations representing the behavior of the sensor.
         """
 
-        # Dynamic equation: e = d(state_var)/dt
+        # Dynamic equation: e = d(state_var)/dt, f = 0
         return [
             self.bond.effort - sp.Derivative(self.state_var, "t"),
             self.bond.flow
@@ -79,7 +79,7 @@ class IntegratedFlowSensor(ElementOnePort, StatefulElement):
             A list of symbolic equations representing the behavior of the sensor.
         """
 
-        # Dynamic equation: f = d(state_var)/dt
+        # Dynamic equation: f = d(state_var)/dt, e = 0
         return [
             self.bond.flow - sp.Derivative(self.state_var, "t"),
             self.bond.effort
