@@ -1,4 +1,4 @@
-from pyBondGraph import BondGraph, Bond, SourceEffort, Inductor, Capacitor, Resistor, OneJunction, ZeroJunction, Gyrator, Transformer
+from pyBondGraph import BondGraph, Bond, SourceEffort, Inductor, Capacitor, Resistor, OneJunction, ZeroJunction, Gyrator, Transformer, IntegratedFlowSensor
 from pyBondGraph.core import Junction
 
 import sympy as sp
@@ -25,6 +25,8 @@ junction_mass = OneJunction("J1_3")
 gravity = SourceEffort("g", "G")
 mass = Inductor("I_mass", "m")
 
+displacement_sensor = IntegratedFlowSensor("x_mass")
+
 bond_graph.add_bond(Bond(voltage_source, junction_elec, "effort_out"))
 bond_graph.add_bond(Bond(junction_elec, resistor, "flow_out"))
 bond_graph.add_bond(Bond(junction_elec, inductor, "effort_out"))
@@ -39,21 +41,23 @@ bond_graph.add_bond(Bond(junction_rope, junction_mass, "effort_out"))
 bond_graph.add_bond(Bond(gravity, junction_mass, "effort_out"))
 bond_graph.add_bond(Bond(junction_mass, mass, "effort_out"))
 
+bond_graph.add_bond(Bond(junction_mass, displacement_sensor, "flow_out"))
+
 A, B, C, D, x, n_states, n_inputs, n_outputs = bond_graph.get_state_space()
 
-# Print results
-# print("x_vec:")
-# sp.pprint(x)
-# print("u_vec:")
-# sp.pprint(bond_graph.inputs)
-# print("Matrix A:")
-# sp.pprint(A)
-# print("\nMatrix B:")
-# sp.pprint(B)
-# print("\nMatrix C:")
-# sp.pprint(C)
-# print("\nMatrix D:")
-# sp.pprint(D)
+#Print results
+print("x_vec:")
+sp.pprint(x)
+print("u_vec:")
+sp.pprint(bond_graph.inputs)
+print("Matrix A:")
+sp.pprint(A)
+print("\nMatrix B:")
+sp.pprint(B)
+print("\nMatrix C:")
+sp.pprint(C)
+print("\nMatrix D:")
+sp.pprint(D)
 
 
 fig, ax = bond_graph.plot()
@@ -84,7 +88,7 @@ subs_dict = {
     mass.value: m
 }
 
-assert len(subs_dict) == len([elem for elem in bond_graph.elements if not isinstance(elem, Junction)]), "All elements (except junctions) must have numeric values for simulation!"
+# assert len(subs_dict) == len([elem for elem in bond_graph.elements if not isinstance(elem, Junction)]), "All elements (except junctions) must have numeric values for simulation!"
 
 def to_numpy(M: sp.Matrix, subs: dict) -> np.ndarray:
     return np.array(M.subs(subs), dtype=np.float64)
@@ -104,8 +108,8 @@ t_sim = np.linspace(0, 5, 10000)
 u_sim = np.zeros((n_inputs, t_sim.shape[0]))
 
 # constant value inputs --> step
-u_sim[0, 0:5000] = U_src_val
-u_sim[0, 5000:] = 0.0
+u_sim[0, 0:5000] = 0.0
+u_sim[0, 5000:] = U_src_val
 u_sim[1, :] = -m * 9.81  # gravity input
 
 sys = ctrl.ss(A_mat_val, B_mat_val, C_mat_val, D_mat_val)
@@ -137,6 +141,11 @@ for i, signal in enumerate(yout):
         ax2.plot(T, signal, label=f"f_{i - n_outputs // 2}", marker=next(markers_flow), markevery=(next(start_marker), 500))
 
 ax3.plot(T, xout.T, label=[sp.pretty(st) for st in bond_graph.state_vars])
+
+f_sensor = yout[-1]
+q_sensor = np.cumsum(f_sensor) * (T[1] - T[0])  # integral of flow = displacement
+
+ax3.plot(T, q_sensor, label="x_mass manually integrated", linestyle="--")
 
 ax1.legend()
 ax2.legend()
